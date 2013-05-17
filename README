@@ -6,7 +6,7 @@ running Linux, especially tablets.
 It has support for:
 	- Showing info about the current display mode.
 	- Switching the output from LCD to a particular HDMI mode and pixel
-	- depth.
+	  depth.
 	- Switching the output from HDMI to LCD.
 	- Changing the HDMI mode and pixel depth.
 

@@ -786,6 +786,12 @@ int main(int argc, char *argv[]) {
 	else
 	if (command == COMMAND_CHANGE_PIXEL_DEPTH) {
 		int output_type;
+
+		if (bytes_per_pixel == current_bytes_per_pixel) {
+			printf("Display is already set to pixel depth of %dbpp.\n", bytes_per_pixel * 8);
+			return 1;
+		}
+
 		args[0] = 0;	// Screen 0.
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type != DISP_OUTPUT_TYPE_HDMI) {
@@ -806,10 +812,12 @@ int main(int argc, char *argv[]) {
 
 		if (bytes_per_pixel == 2)
 			disable_scaler(0);
+#ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
 		else
 		if (mode_size[mode] > 1280 * 1024)
 			// Enable scaler for bigger modes at 32bpp.
 			enable_scaler_for_mode(0, mode);
+#endif
 
 		set_framebuffer_console_pixel_depth(0, bytes_per_pixel);
 

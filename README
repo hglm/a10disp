@@ -1,0 +1,57 @@
+a10disp v0.1
+
+a10disp is a utility to change the output mode of screen 0 for A10 devices
+running Linux, especially tablets.
+
+It has support for:
+	- Showing info about the current display mode.
+	- Switching the output from LCD to a particular HDMI mode and pixel depth.
+	- Switching the output from HDMI to LCD.
+	- Changing the HDMI mode and pixel depth.
+
+Pixel depths can be 32 (RGBA8888) or 16 (RGB565). VGA or TV output is currently
+not supported.
+
+When setting a HDMI mode, it enables SCALER mode for 32bpp modes larger than
+1280x1024 (primarily 1920x1080). When enabling a HDMI mode, it also does a check
+of the framebuffer size to prevent framebuffer overflow which could otherwise cause
+a hard crash.
+
+Run a10disp without arguments for usage information. It must be run as root
+to actually do anything. 
+
+a10disp must be run in the console. Exit any X server sessions before running
+a10disp (for example, running Debian with lightdm, run
+'sudo /etc/init.d/lightdm stop'). a10disp automatically adjusts the console
+framebuffer size to the new resolution. To be able to change the size of the
+font used in the console, install the package console-setup and run setupcon.
+When you restart X, the new framebuffer dimensions will be used.
+
+Remember that since framebuffer bandwidth for screen refresh increases as the
+mode dimensions increase, the memory bandwidth available for applications
+also decreases. This means the device runs slower when a higher resolution 
+mode is set. Setting the pixel depth to 16bpp can also measurably improve
+performance because it halves the bandwidth needed for screen refresh.
+
+To compile, you need to copy the file sunxi_disp_ioctl.h from to the
+kernel being used to the source directory for a10disp. In the kernel sources,
+this file is located in include/video.
+
+The program requires sunxi display driver version 1.0 or higher. It was tested on
+sunxi kernel version 3.4.43. It may not work on earlier versions of the 3.4 tree
+with a display driver older than version 1.0. It may also work on the 3.0 tree
+if the sunxi display driver version is 1.0 or higher.
+
+There are definitions at the top of a10disp.c that can be changed. The first defines
+whether scaler mode is used for modes like 1920x1080x32bpp. The second defines the
+number of framebuffers (double-buffering) assumed when checking whether the selected
+mode fits into the framebuffer. If you don't need double-buffering (which is used by
+Mali and probably by motion video acceleration), you can set this to 1 to be able to
+set larger modes with a smaller framebuffer. You can change the default size of the
+framebuffer allocated by the kernel by setting the kernel command line option
+sunxi_fb_mem_reserve=n where n is the total framebuffer size in MB.
+
+To install, run
+
+	sudo make install
+

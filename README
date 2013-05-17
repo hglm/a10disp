@@ -28,6 +28,13 @@ framebuffer size to the new resolution. To be able to change the size of the
 font used in the console, install the package console-setup and run setupcon.
 When you restart X, the new framebuffer dimensions will be used.
 
+Because it is theoretically possible that setting a mode will result in a hard
+crash, or losing the ability to see what you type, it is advisable to run
+a10disp on an idle system, and to run "sudo sync" just before running a10disp
+(for example: "sudo sync; sudo a10disp changehdmimode 5"). Be prepared to
+blindly type something like "sudo reboot" if something goes wrong and you can
+no longer see what you type.
+
 Remember that since framebuffer bandwidth for screen refresh increases as the
 mode dimensions increase, the memory bandwidth available for applications
 also decreases. This means the device runs slower when a higher resolution 

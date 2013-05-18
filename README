@@ -64,9 +64,10 @@ To install, run
 
 	sudo make install
 
-
 Changes:
 
+v0.3.1	- Fix lcdon when framebuffer was in 16bpp mode.
+	- Fix bug when changing from a 16bpp mode to a 32bpp mode.
 v0.3	- Fix bugs when changing from a 16bpp mode to a 32bpp mode using
 	  changehdmimode or switchtohdmimode.
 	- Elimate scaler warning message when changing from 1920x1024x32bpp

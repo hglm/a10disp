@@ -1,4 +1,4 @@
-a10disp v0.2
+a10disp v0.3
 
 a10disp is a utility to change the output mode of screen 0 for A1x devices
 running Linux, especially tablets.
@@ -63,4 +63,14 @@ total framebuffer size in MB.
 To install, run
 
 	sudo make install
+
+
+Changes:
+
+v0.3	- Fix bugs when changing from a 16bpp mode to a 32bpp mode using
+	  changehdmimode or switchtohdmimode.
+	- Elimate scaler warning message when changing from 1920x1024x32bpp
+	  to a 16bpp mode.
+	- Fix switching to LCD mode from a 16bpp mode.
+	- Add displayoff and lcdon commands.
 

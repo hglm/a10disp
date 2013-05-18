@@ -50,6 +50,8 @@
 #define COMMAND_CHANGE_HDMI_MODE	3
 #define COMMAND_CHANGE_HDMI_MODE_FORCE	4
 #define COMMAND_CHANGE_PIXEL_DEPTH	5
+#define COMMAND_DISPLAY_OFF		6
+#define COMMAND_LCD_ON			7
 
 static int fd_disp;
 static int fd_fb[2];
@@ -99,7 +101,7 @@ static int mode_height[28] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1
 
 static void usage(int argc, char *argv[]) {
 	int i;
-	printf("a10disp v0.2\n");
+	printf("a10disp v0.3\n");
 	printf("Usage: %s <info|switchtohdmi|switchtolcd|changehdmimode|changehdmimodeforce|changepixeldepth> [mode_number] [pixel_depth]\n"
 		"info\n"
 		"       Show information about the current mode on screen 0.\n"
@@ -116,7 +118,11 @@ static void usage(int argc, char *argv[]) {
 		"changehdmimodeforce mode_number [pixel_depth]\n"
 		"       Change HDMI mode of screen 0 to mode number even if the display driver reports the mode is not supported.\n"
 		"changepixeldepth [pixel_depth]\n"
-		"	Change the pixel depth in bits of the current mode (must be 16 or 32),\n",
+		"	Change the pixel depth in bits of the current mode (must be 16 or 32).\n"
+		"displayoff\n"
+		"	Disable the display output on screen 0.\n"
+		"lcdon\n"
+		"	Enable LCD display on screen 0. Only valid when screen output is disabled on screen 0.\n",
 		argv[0]);
 	printf("\nHDMI/TV mode numbers:\n");
 	for (i = 0; i < 28; i++)
@@ -185,13 +191,53 @@ static void set_framebuffer_console_size_to_screen_size(int screen) {
 	system(s);
 }
 
+static void set_framebuffer_console_size_to_screen_size_and_set_pixel_depth(int screen, int bytes_per_pixel) {
+	int tmp;
+	int ret;
+	int width, height;
+	char s[80];
+        tmp = screen;
+       	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_WIDTH, &tmp);
+        if (ret < 0) {
+                fprintf(stderr, "Error: ioctl(SCN_GET_WIDTH) failed: %s\n",
+                        strerror(-ret));
+                exit(ret);
+        }
+        width = ret;
+        tmp = screen;
+        ret = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
+        if (ret < 0) {
+       	        fprintf(stderr, "Error: ioctl(SCN_GET_HEIGHT) failed: %s\n",
+               	        strerror(-ret));
+                exit(ret);
+        }
+        height = ret;
+	if (bytes_per_pixel == 4)
+		sprintf(s, "fbset --all -xres %d -yres %d -depth 32 -rgba 8,8,8,8", width, height);
+	else
+		sprintf(s, "fbset --all -xres %d -yres %d -depth 16 -rgba 5,6,5,0", width, height);
+	printf("Setting console framebuffer resolution to %d x %d and pixel depth to %dbpp.\n", width, height, bytes_per_pixel * 8);
+	system(s);
+}
+
+static void set_framebuffer_console_size_and_depth(int mode, int bytes_per_pixel) {
+	char s[80];
+	if (bytes_per_pixel == 4)
+		sprintf(s, "fbset --all -xres %d -yres %d -depth 32 -rgba 8,8,8,8", mode_width[mode], mode_height[mode]);
+	else
+		sprintf(s, "fbset --all -xres %d -yres %d -depth 16 -rgba 5,6,5,0", mode_width[mode], mode_height[mode]);
+	printf("Setting console framebuffer resolution to %d x %d and pixel depth to %dbpp.\n", mode_width[mode],
+		mode_height[mode], bytes_per_pixel * 8);
+	system(s);
+}
+
 void set_framebuffer_console_pixel_depth(int screen, int bytes_per_pixel) {
 	char *fbset_str;
 	if (bytes_per_pixel == 4)
 		fbset_str = "fbset --all -depth 32 -rgba 8,8,8,8";
 	else
 		fbset_str = "fbset --all -depth 16 -rgba 5,6,5,0";
-	printf("Setting console framebuffer pixel format to %d bpp.\n", bytes_per_pixel * 8);
+	printf("Setting console framebuffer pixel depth to %d bpp.\n", bytes_per_pixel * 8);
 	system(fbset_str);
 }
 
@@ -629,6 +675,14 @@ int main(int argc, char *argv[]) {
 		}
 		bytes_per_pixel = bits_per_pixel / 8;
 	}
+	else
+        if (strcasecmp(argv[1], "displayoff") == 0) {
+		command = COMMAND_DISPLAY_OFF;
+	}
+	else
+        if (strcasecmp(argv[1], "lcdon") == 0) {
+		command = COMMAND_LCD_ON;
+	}
 	else {
 		usage(argc, argv);
 		return 1;
@@ -677,9 +731,14 @@ int main(int argc, char *argv[]) {
       	        args[0] = 0;    // Screen 0.
                 ioctl(fd_disp, DISP_CMD_LCD_OFF, args);
 
-		// When changing from 32bpp to 16bpp, change the pixel depth first.
+		// When changing from 32bpp to 16bpp, change the pixel depth.
 		if (current_bytes_per_pixel == 4 && bytes_per_pixel == 2)
 			set_framebuffer_console_pixel_depth(0, bytes_per_pixel);
+
+		// When changing from 16bpp to 32bpp, set the console and pixel depth with one
+		// command.
+		if (current_bytes_per_pixel == 2 && bytes_per_pixel == 4)
+			set_framebuffer_console_size_and_depth(mode, bytes_per_pixel);
 
 		// Set the mode.
 		args[0] = 0;	// Screen 0.
@@ -690,10 +749,6 @@ int main(int argc, char *argv[]) {
              		        strerror(-ret));
                 	return ret;
 	        }
-
-		// When changing from 16bpp to 32bpp, change the pixel depth after setting the mode.
-		if (current_bytes_per_pixel == 2 && bytes_per_pixel == 4)
-			set_framebuffer_console_pixel_depth(0, bytes_per_pixel);
 
 #ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
 		if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && current_bytes_per_pixel == 4))
@@ -707,7 +762,9 @@ int main(int argc, char *argv[]) {
 		// Turn HDMI on again.
 		args[0] = 0;	// Screen 0.
 		ioctl(fd_disp, DISP_CMD_HDMI_ON, args);
-		set_framebuffer_console_size_to_screen_size(0);
+
+		if (!(current_bytes_per_pixel == 2 && bytes_per_pixel == 4))
+			set_framebuffer_console_size_to_screen_size(0);
 	}
 	else
 	if (command == COMMAND_SWITCH_TO_LCD) {
@@ -727,13 +784,15 @@ int main(int argc, char *argv[]) {
                 ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 		// Disable scaler mode.
 		disable_scaler(0);
-		// Change the pixel depth to 32bpp if it was 16bpp.
-		if (current_bytes_per_pixel == 2)
-			set_framebuffer_console_pixel_depth(0, 4);
 		// Turn the LCD on.
 		args[0] = 0;	// Screen 0.
 		ioctl(fd_disp, DISP_CMD_LCD_ON, args);
-		set_framebuffer_console_size_to_screen_size(0);
+		// When changing from 16bpp to 32bpp, set the pixel depth and screen size
+		// with one command.
+		if (current_bytes_per_pixel == 2)
+			set_framebuffer_console_size_to_screen_size_and_set_pixel_depth(0, 4);
+		else
+			set_framebuffer_console_size_to_screen_size(0);
 	}
 	else
 	if (command == COMMAND_CHANGE_HDMI_MODE || command == COMMAND_CHANGE_HDMI_MODE_FORCE) {
@@ -761,9 +820,15 @@ int main(int argc, char *argv[]) {
       	        args[0] = 0;    // Screen 0.
                 ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 
-		// When changing from 32bpp to 16bpp, change the pixel depth first.
-		if (current_bytes_per_pixel == 4 && bytes_per_pixel == 2)
+		// When changing from 32bpp to 16bpp, disable the scaler and change the pixel depth first.
+		if (current_bytes_per_pixel == 4 && bytes_per_pixel == 2) {
 			set_framebuffer_console_pixel_depth(0, bytes_per_pixel);
+		}
+
+		// When changing from 16bpp to 32bpp, set the console and pixel depth with one
+		// command.
+		if (current_bytes_per_pixel == 2 && bytes_per_pixel == 4)
+			set_framebuffer_console_size_and_depth(mode, bytes_per_pixel);
 
 		// Set the mode.
 		args[0] = 0;	// Screen 0.
@@ -775,10 +840,6 @@ int main(int argc, char *argv[]) {
                 	return ret;
 	        }
 
-		// When changing from 16bpp to 32bpp, change the pixel depth after setting the mode.
-		if (current_bytes_per_pixel == 2 && bytes_per_pixel == 4)
-			set_framebuffer_console_pixel_depth(0, bytes_per_pixel);
-
 #ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
 		if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && current_bytes_per_pixel == 4))
 		&& mode_size[mode] > 1280 * 1024) {
@@ -787,13 +848,16 @@ int main(int argc, char *argv[]) {
 		}
 		else
 #endif
+		if (!(current_bytes_per_pixel == 4 && bytes_per_pixel == 2))
 			disable_scaler(0);
 
 		// Turn HDMI on again.
 		args[0] = 0;	// Screen 0.
 		ioctl(fd_disp, DISP_CMD_HDMI_ON, args);
 
-		set_framebuffer_console_size_to_screen_size(0);
+		// If we didn't already, set the console framebuffer size to the new dimensions.
+		if (!(current_bytes_per_pixel == 2 && bytes_per_pixel == 4))
+			set_framebuffer_console_size_to_screen_size(0);
 	}
 	else
 	if (command == COMMAND_CHANGE_PIXEL_DEPTH) {
@@ -836,6 +900,47 @@ int main(int argc, char *argv[]) {
 		// Turn HDMI on again.
 		args[0] = 0;	// Screen 0.
 		ioctl(fd_disp, DISP_CMD_HDMI_ON, args);
+	}
+	else
+	if (command == COMMAND_DISPLAY_OFF) {
+		int output_type;
+		args[0] = 0;	// Screen 0.
+		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
+		if (output_type == DISP_OUTPUT_TYPE_HDMI) {
+	      	        args[0] = 0;    // Screen 0.
+	                ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
+		}
+		else
+		if (output_type == DISP_OUTPUT_TYPE_LCD) {
+			args[0] = 0;	// Screen 0.
+			ioctl(fd_disp, DISP_CMD_LCD_OFF, args);
+		}
+		else
+		if (output_type == DISP_OUTPUT_TYPE_VGA) {
+			args[0] = 0;	// Screen 0.
+			ioctl(fd_disp, DISP_CMD_VGA_OFF, args);
+		}
+		else
+		if (output_type == DISP_OUTPUT_TYPE_TV) {
+			args[0] = 0;	// Screen 0.
+			ioctl(fd_disp, DISP_CMD_TV_OFF, args);
+		}
+	}
+	else
+	if (command == COMMAND_LCD_ON) {
+		int output_type;
+		args[0] = 0;	// Screen 0.
+		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
+		if (output_type != DISP_OUTPUT_TYPE_NONE) {
+			printf("Display must be off for lcdon.\n");
+			return - 1;
+		}
+		// Change the pixel depth to 32bpp if it was 16bpp.
+		if (current_bytes_per_pixel == 2)
+			set_framebuffer_console_pixel_depth(0, 4);
+		args[0] = 0;	// Screen 0.
+		ioctl(fd_disp, DISP_CMD_LCD_ON, args);
+		set_framebuffer_console_size_to_screen_size(0);
 	}
 	return 0;
 }

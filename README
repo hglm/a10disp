@@ -1,6 +1,6 @@
-a10disp v0.1
+a10disp v0.2
 
-a10disp is a utility to change the output mode of screen 0 for A10 devices
+a10disp is a utility to change the output mode of screen 0 for A1x devices
 running Linux, especially tablets.
 
 It has support for:

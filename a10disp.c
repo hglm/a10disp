@@ -40,7 +40,7 @@
 
 // The number of buffers per framebuffer used when checking whether the
 // selected mode fits into the framebuffer.
-// You can change this to 1 if you don't use Mali or video acceleratin and
+// You can change this to 1 if you don't use Mali or video acceleration and
 // want to be able set larger modes with a small framebuffer.
 #define NUMBER_OF_FRAMEBUFFER_BUFFERS 2
 
@@ -99,7 +99,7 @@ static int mode_height[28] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1
 
 static void usage(int argc, char *argv[]) {
 	int i;
-	printf("a10disp v0.1\n");
+	printf("a10disp v0.2\n");
 	printf("Usage: %s <info|switchtohdmi|switchtolcd|changehdmimode|changehdmimodeforce|changepixeldepth> [mode_number] [pixel_depth]\n"
 		"info\n"
 		"       Show information about the current mode on screen 0.\n"
@@ -278,7 +278,7 @@ static int get_framebuffer_size(int screen) {
 
 // Check whether the framebuffer size is sufficient for the given mode, with the number of buffers
 // defined by NUMBER_OF_FRAMEBUFFER_BUFFERS. If bytes per pixel is zero, the bytes per pixel of the
-// current screen is used.
+// current screen is used. If mode == DISP_TV_MODE_EDID, get the dimensions from the display driver.
 
 static void check_framebuffer_size(int screen, int mode, int bytes_per_pixel) {
 	struct fb_var_screeninfo var_screeninfo;
@@ -287,9 +287,21 @@ static void check_framebuffer_size(int screen, int mode, int bytes_per_pixel) {
 		ioctl(fd_fb[screen], FBIOGET_VSCREENINFO, &var_screeninfo);
 		bytes_per_pixel = (var_screeninfo.bits_per_pixel + 7) / 8;
 	}
-	int mode_size_in_bytes = mode_size[mode] * bytes_per_pixel;
+	int mode_size_in_bytes;
+	if (mode == DISP_TV_MODE_EDID) {
+		int tmp, width, height;
+		tmp = screen;
+		width = ioctl(fd_disp, DISP_CMD_SCN_GET_WIDTH, &tmp);
+		tmp = screen;
+		height = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
+		mode_size_in_bytes = width * height * bytes_per_pixel;
+	}
+	else
+		mode_size_in_bytes = mode_size[mode] * bytes_per_pixel;
 	if (mode_size_in_bytes * NUMBER_OF_FRAMEBUFFER_BUFFERS > framebuffer_size_in_bytes) {
-		printf("Reported framebuffer size is too small to fit mode.\n");
+		printf("Reported framebuffer size is too small to fit mode (%.2f MB available; %.2f MB required).\n",
+			(float)framebuffer_size_in_bytes / (1024 * 1024),
+			(float)mode_size_in_bytes * NUMBER_OF_FRAMEBUFFER_BUFFERS / (1024 * 1024));
 		if (NUMBER_OF_FRAMEBUFFER_BUFFERS == 1)
 			printf("Increase the default framebuffer size allocated at boot.\n");
 		else

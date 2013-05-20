@@ -1,4 +1,4 @@
-a10disp v0.3
+a10disp v0.3.2
 
 a10disp is a utility to change the output mode of screen 0 for A1x devices
 running Linux, especially tablets.
@@ -66,6 +66,8 @@ To install, run
 
 Changes:
 
+v0.3.2	- Experimental suport for changing the pixel depth to and from 24bpp
+	  mode (only with changepixeldepth).
 v0.3.1	- Fix lcdon when framebuffer was in 16bpp mode.
 	- Fix bug when changing from a 16bpp mode to a 32bpp mode.
 v0.3	- Fix bugs when changing from a 16bpp mode to a 32bpp mode using

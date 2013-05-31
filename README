@@ -1,6 +1,6 @@
-a10disp v0.3.2
+a10disp v0.4
 
-a10disp is a utility to change the output mode of screen 0 for A1x devices
+a10disp is a utility to change the output mode of screen 0 or 1 for A1x devices
 running Linux, especially tablets.
 
 It has support for:
@@ -56,9 +56,10 @@ defines the number of framebuffers (double-buffering) assumed when checking
 whether the selected mode fits into the framebuffer. If you don't need double
 buffering (which is used by Mali and probably by motion video acceleration),
 you can set this to 1 to be able to set larger modes with a smaller framebuffer.
-You can change the default size of the framebuffer allocated by the kernel by
-setting the kernel command line option sunxi_fb_mem_reserve=n where n is the
-total framebuffer size in MB.
+This can also be enabled with the --nodoublebuffer option. You can change the
+default size of the framebuffer allocated by the kernel by setting the kernel
+command line option sunxi_fb_mem_reserve=n where n is the total framebuffer
+size in MB.
 
 To install, run
 
@@ -66,6 +67,9 @@ To install, run
 
 Changes:
 
+v0.4	- Rework command line processing.
+	- Add --screen option so that screen 1 can also be changed.
+	- Add --nodoublebuffer option.
 v0.3.2	- Experimental suport for changing the pixel depth to and from 24bpp
 	  mode (only with changepixeldepth).
 v0.3.1	- Fix lcdon when framebuffer was in 16bpp mode.

@@ -68,7 +68,8 @@ To install, run
 Changes:
 
 v0.4	- Rework command line processing.
-	- Add --screen option so that screen 1 can also be changed.
+	- Add --screen option so that screen 1 can also be changed. This has
+          not been tested.
 	- Add --nodoublebuffer option.
 v0.3.2	- Experimental suport for changing the pixel depth to and from 24bpp
 	  mode (only with changepixeldepth).

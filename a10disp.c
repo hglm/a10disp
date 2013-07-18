@@ -104,7 +104,7 @@ static int mode_height[28] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1
 
 static void usage(int argc, char *argv[]) {
 	int i;
-	printf("a10disp v0.4\n");
+	printf("a10disp v0.4.1\n");
 	printf("Usage: %s <options> <command>\n"
 		"Options:\n"
 		"--screen <number>\n"
@@ -112,6 +112,12 @@ static void usage(int argc, char *argv[]) {
 		"--nodoublebuffer\n"
 		"       When checking the framebuffer size, assume no double buffering will be used.\n"
 		"       Use this only if double buffering won't be required (you don't use Mali).\n"
+		"--noscaler\n"
+		"	Do not enable scaler mode when setting 32bpp modes of size 1280x1024 and larger.\n"
+		"	While scaler mode can help reduce some artifacts related to scanout buffer underrun,\n"
+		"	on systems with a limited number of scaler layers (such as those with an A13 chip),\n"
+		"	using scaler mode may make other applications using scaler mode, such as accelerated\n"
+		"	video or video overlay impossible.\n"
 		"Commands:\n"
 		"info\n"
 		"       Show information about the current mode on screens 0 and 1.\n"
@@ -432,6 +438,7 @@ int main(int argc, char *argv[]) {
 	int previous_bytes_per_pixel;
 	int previous_width, previous_height;
 	int screen = 0;
+	int use_scaler_for_large_32bpp_modes = 1;
 
 	int argi = 1;
 	if (argc == 1) {
@@ -454,6 +461,11 @@ int main(int argc, char *argv[]) {
                 }
 		if (strcasecmp(argv[argi], "--nodoublebuffer") == 0) {
 			nu_framebuffer_buffers = 1;
+			argi++;
+			continue;
+		}
+		if (strcasecmp(argv[argi], "--noscaler") == 0) {
+			use_scaler_for_large_32bpp_modes = 0;
 			argi++;
 			continue;
 		}
@@ -806,13 +818,12 @@ int main(int argc, char *argv[]) {
                 	return ret;
 	        }
 
-#ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
-		if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
-		&& mode_size[mode] > 1280 * 1024) {
-			// Enable scaler for bigger modes at 32bpp.
-			enable_scaler_for_mode(screen, mode);
-		}
-#endif
+		if (use_scaler_for_large_32bpp_modes)
+			if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
+			&& mode_size[mode] > 1280 * 1024) {
+				// Enable scaler for bigger modes at 32bpp.
+				enable_scaler_for_mode(screen, mode);
+			}
 		// When switching from LCD, we can assume scaler mode was disabled.
 
 		// Turn HDMI on again.
@@ -907,15 +918,12 @@ int main(int argc, char *argv[]) {
                 	return ret;
 	        }
 
-#ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
-		if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
-		&& mode_size[mode] > 1280 * 1024) {
+		if (use_scaler_for_large_32bpp_modes &&
+		((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
+		&& mode_size[mode] > 1280 * 1024))
 			// Enable scaler for bigger modes at 32bpp.
 			enable_scaler_for_mode(screen, mode);
-		}
 		else
-#endif
-		if (!(previous_bytes_per_pixel == 4 && bytes_per_pixel == 2))
 			disable_scaler(screen);
 
 		// Turn HDMI on again.
@@ -953,14 +961,12 @@ int main(int argc, char *argv[]) {
       	        args[0] = screen;
                 ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 
-		if (bytes_per_pixel == 2 || bytes_per_pixel == 3)
-			disable_scaler(screen);
-#ifdef USE_SCALER_FOR_LARGE_32BPP_MODES
-		else
-		if (mode_size[mode] > 1280 * 1024)
+		if (bytes_per_pixel == 4 && use_scaler_for_large_32bpp_modes
+		&& mode_size[mode] > 1280 * 1024)
 			// Enable scaler for bigger modes at 32bpp.
 			enable_scaler_for_mode(screen, mode);
-#endif
+		else
+			disable_scaler(screen);
 
 		set_framebuffer_console_pixel_depth(bytes_per_pixel);
 

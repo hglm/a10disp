@@ -1,4 +1,4 @@
-a10disp v0.4
+a10disp v0.4.1
 
 a10disp is a utility to change the output mode of screen 0 or 1 for A1x devices
 running Linux, especially tablets.
@@ -13,10 +13,10 @@ It has support for:
 Pixel depths can be 32 (RGBA8888) or 16 (RGB565). VGA or TV output is currently
 not supported.
 
-When setting a HDMI mode, it enables SCALER mode for 32bpp modes larger than
-1280x1024 (primarily 1920x1080) for enhanced stability. When enabling a HDMI
-mode, it also does a check of the framebuffer size to prevent framebuffer
-overflow which could otherwise cause a hard crash.
+When setting a HDMI mode, it optionally enables SCALER mode for 32bpp modes
+larger than 1280x1024 (primarily 1920x1080) for enhanced stability. When
+enabling a HDMI mode, it also does a check of the framebuffer size to prevent
+framebuffer overflow which could otherwise cause a hard crash.
 
 Run a10disp without arguments for usage information. It must be run as root
 to actually do anything. 
@@ -50,9 +50,8 @@ on sunxi kernel version 3.4.43. It may not work on earlier versions of the 3.4
 tree with a display driver older than version 1.0. It may also work on the 3.0
 tree if the sunxi display driver version is 1.0 or higher.
 
-There are definitions at the top of a10disp.c that can be changed. The first
-defines whether scaler mode is used for modes like 1920x1080x32bpp. The second
-defines the number of framebuffers (double-buffering) assumed when checking
+There is a definition at the top of a10disp.c that can be changed. It defines
+the number of framebuffers (double-buffering) assumed when checking
 whether the selected mode fits into the framebuffer. If you don't need double
 buffering (which is used by Mali and probably by motion video acceleration),
 you can set this to 1 to be able to set larger modes with a smaller framebuffer.
@@ -65,8 +64,12 @@ To install, run
 
 	sudo make install
 
+Running a10disp requires that the "fbset" utility is present in the path. It
+is available in Debian based distributions in the package "fbset".
+
 Changes:
 
+v0.4.1	- Add --noscaler option.
 v0.4	- Rework command line processing.
 	- Add --screen option so that screen 1 can also be changed. This has
           not been tested.

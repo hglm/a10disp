@@ -104,7 +104,7 @@ static int mode_height[28] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1
 
 static void usage(int argc, char *argv[]) {
 	int i;
-	printf("a10disp v0.4.1\n");
+	printf("a10disp v0.5\n");
 	printf("Usage: %s <options> <command>\n"
 		"Options:\n"
 		"--screen <number>\n"
@@ -113,11 +113,11 @@ static void usage(int argc, char *argv[]) {
 		"       When checking the framebuffer size, assume no double buffering will be used.\n"
 		"       Use this only if double buffering won't be required (you don't use Mali).\n"
 		"--noscaler\n"
-		"	Do not enable scaler mode when setting 32bpp modes of size 1280x1024 and larger.\n"
-		"	While scaler mode can help reduce some artifacts related to scanout buffer underrun,\n"
-		"	on systems with a limited number of scaler layers (such as those with an A13 chip),\n"
-		"	using scaler mode may make other applications using scaler mode, such as accelerated\n"
-		"	video or video overlay impossible.\n"
+		"	Do not enable scaler mode when setting 32bpp modes larges than size 1280x1024.\n"
+		"	While scaler mode can help reduce some artifacts related to scanout buffer underrun\n"
+		"       (for example wavy screen during Mali operation) on systems with a limited number of\n"
+		"       scaler layers (such as those with an A13 chip), using scaler mode may make other\n"
+		"	applications using scaler mode, such as accelerated video or video overlay impossible.\n"
 		"Commands:\n"
 		"info\n"
 		"       Show information about the current mode on screens 0 and 1.\n"
@@ -730,10 +730,17 @@ int main(int argc, char *argv[]) {
 				printf("        Layer screen window size is %d x %d.\n", layer_info.scn_win.width,
 					layer_info.scn_win.height);
 				if (output_type == DISP_OUTPUT_TYPE_HDMI) {
+					// Get the current HDMI mode.
+					args[0] = screen;
+					int current_mode = ioctl(fd_disp, DISP_CMD_HDMI_GET_MODE, args);
+					if (current_mode == DISP_TV_MODE_EDID)
+						printf("Current HDMI mode: EDID\n");
+					else
+						printf("Current HDMI mode: %d (%s)\n", current_mode, mode_str[current_mode]);
 					printf("Supported HDMI modes:\n");
 					for (i = 0; i < 28; i++)
 						if (strlen(mode_str[i]) > 0) {
-							args[0] = 0;	// Screen 0.
+							args[0] = screen;
 							args[1] = i;
 							ret = ioctl(fd_disp, DISP_CMD_HDMI_SUPPORT_MODE, args);
 							if (ret == 1)
@@ -961,8 +968,14 @@ int main(int argc, char *argv[]) {
       	        args[0] = screen;
                 ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 
-		if (bytes_per_pixel == 4 && use_scaler_for_large_32bpp_modes
-		&& mode_size[mode] > 1280 * 1024)
+		// mode is equal to 0xFF when EDID setting is enabled.
+		int large_mode;
+		if (mode >= 0 && mode < 28)
+			large_mode = (mode_size[mode] > 1280 * 1024);
+		else
+			large_mode = (previous_width * previous_height > 1280 * 1024);
+
+		if (bytes_per_pixel == 4 && use_scaler_for_large_32bpp_modes && large_mode)
 			// Enable scaler for bigger modes at 32bpp.
 			enable_scaler_for_mode(screen, mode);
 		else

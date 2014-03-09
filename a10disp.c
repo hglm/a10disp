@@ -22,7 +22,7 @@
   THE SOFTWARE.
 */
 
-
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -33,6 +33,20 @@
 
 #include <linux/fb.h>
 #include "sunxi_disp_ioctl.h"
+#define MODE_COUNT DISP_TV_MODE_NUM
+/*
+You can add new modes support to kernel by editing files in drivers/video/sunxi/:
+    hdmi/hdmi_core.h:
+	Add new mode after "#define HDMI1280_1024_60(HDMI_NON_CEA861D_START + 1)"
+	For example, "#define HDMI1680_1050_60(HDMI_NON_CEA861D_START + 2)"
+    hdmi/hdmi_core.c:
+	Add timings before "{ HDMI_EDID, }" line, for example
+	    "{ HDMI1680_1050_60,   146000000,  0,  1680, 1050, 2240, 456, 104,176, 1089, 36,  3,  6, 0,  0,  1 },"
+    hdmi/drv_hdmi.c:
+	Add you mode with number to switch after "return HDMI1280_1024_60;"
+	For example, "case 28:return HDMI1680_1050_60;
+Change DISP_TV_MODE_NUM in include/video/sunxi_disp_ioctl.h, add mode to this file and rebuild the kernel.
+*/
 
 // Comment out the following line to not use scaler mode for large modes
 // like 1920x1080 at 32bpp.
@@ -59,7 +73,7 @@ static int fd_disp;
 static int fd_fb[2];
 static int nu_framebuffer_buffers = DEFAULT_NUMBER_OF_FRAMEBUFFER_BUFFERS;
 
-static const char *mode_str[28] = {
+static const char *mode_str[MODE_COUNT] = {
 	"480i",
 	"576i",
 	"480p",
@@ -90,16 +104,16 @@ static const char *mode_str[28] = {
 	"1280x1024 60 Hz"
 };
 
-static int mode_size[28] = {
+static int mode_size[MODE_COUNT] = {
 	640 * 480, 720 * 576, 640 * 480, 720 * 576, 1280 * 720, 1280 * 720, 1920 * 1080, 1920 * 1080, 1920 * 1080, 1920 * 1080, 1920 * 1080,
 	720 * 576, 720 * 576, 0, 640 * 480, 640 * 480, 0, 720 * 576, 720 * 576, 0, 720 * 576, 720 * 576, 0, 1920 * 1080, 1280 * 720, 1280 * 720,
 	1360 * 768, 1280 * 1024
 };
 
-static int mode_width[28] = { 640, 720, 640, 720, 1280, 1280, 1920, 1920, 1920, 1920, 1920, 720, 720, 0, 640, 640, 720, 720, 0, 720, 720, 0, 1920, 1280,
+static int mode_width[MODE_COUNT] = { 640, 720, 640, 720, 1280, 1280, 1920, 1920, 1920, 1920, 1920, 720, 720, 0, 640, 640, 720, 720, 0, 720, 720, 0, 1920, 1280,
 	1280, 1360, 1280 };
 
-static int mode_height[28] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1080, 1080, 576, 576, 0, 480, 480, 576, 576, 0, 576, 576, 0, 1080, 720,
+static int mode_height[MODE_COUNT] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1080, 1080, 576, 576, 0, 480, 480, 576, 576, 0, 576, 576, 0, 1080, 720,
 	720, 1360, 1024 };
 
 static void usage(int argc, char *argv[]) {
@@ -141,7 +155,7 @@ static void usage(int argc, char *argv[]) {
 		"	Enable LCD display. Only valid when screen output is disabled on the given screen.\n",
 		argv[0]);
 	printf("\nHDMI/TV mode numbers:\n");
-	for (i = 0; i < 28; i++)
+	for (i = 0; i < MODE_COUNT; i++)
 		if (strlen(mode_str[i]) > 0)
 			printf("%2d      %s\n", i, mode_str[i]);
 }
@@ -529,7 +543,7 @@ int main(int argc, char *argv[]) {
 		}
 		command = COMMAND_CHANGE_HDMI_MODE;
 		mode = atoi(argv[argi + 1]);
-		if (mode < 0 || mode >= 28) {
+		if (mode < 0 || mode >= MODE_COUNT) {
 			printf("Mode out of range.\n");
 			return 1;
 		}
@@ -551,7 +565,7 @@ int main(int argc, char *argv[]) {
 		}
 		command = COMMAND_CHANGE_HDMI_MODE_FORCE;
 		mode = atoi(argv[argi + 1]);
-		if (mode < 0 || mode >= 28) {
+		if (mode < 0 || mode >= MODE_COUNT) {
 			printf("Mode out of range.\n");
 			return 1;
 		}
@@ -738,7 +752,7 @@ int main(int argc, char *argv[]) {
 					else
 						printf("Current HDMI mode: %d (%s)\n", current_mode, mode_str[current_mode]);
 					printf("Supported HDMI modes:\n");
-					for (i = 0; i < 28; i++)
+					for (i = 0; i < MODE_COUNT; i++)
 						if (strlen(mode_str[i]) > 0) {
 							args[0] = screen;
 							args[1] = i;
@@ -970,7 +984,7 @@ int main(int argc, char *argv[]) {
 
 		// mode is equal to 0xFF when EDID setting is enabled.
 		int large_mode;
-		if (mode >= 0 && mode < 28)
+		if (mode >= 0 && mode < MODE_COUNT)
 			large_mode = (mode_size[mode] > 1280 * 1024);
 		else
 			large_mode = (previous_width * previous_height > 1280 * 1024);

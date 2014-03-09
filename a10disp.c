@@ -68,7 +68,8 @@ Change DISP_TV_MODE_NUM in include/video/sunxi_disp_ioctl.h, add mode to this fi
 #define COMMAND_DISPLAY_OFF		6
 #define COMMAND_LCD_ON			7
 #define COMMAND_INFO			8
-
+#define COMMAND_RESCALE			9
+#define COMMAND_DISABLE_SCALER 		10
 static int fd_disp;
 static int fd_fb[2];
 static int nu_framebuffer_buffers = DEFAULT_NUMBER_OF_FRAMEBUFFER_BUFFERS;
@@ -346,7 +347,43 @@ static void enable_scaler_for_mode(int screen, int mode) {
 		exit(ret);
 	}
 }
+static void enable_scaler_for_size(int screen, int sw,int sh,int w,int h) {
+	int ret;
+	int layer_handle;
+	__disp_layer_info_t layer_info;
+	unsigned int args[4];
+	if (screen == 0)
+		ret = ioctl(fd_fb[0], FBIOGET_LAYER_HDL_0, args);
+	else
+		ret = ioctl(fd_fb[1], FBIOGET_LAYER_HDL_1, args);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(FBIOGET_LAYER_HDL_%d) failed: %s\n", screen, strerror(- ret));
+		exit(ret);
+	}
+	layer_handle = args[0];
 
+	args[0] = screen;
+	args[1] = layer_handle;
+	args[2] = &layer_info;
+	ret = ioctl(fd_disp, DISP_CMD_LAYER_GET_PARA, args);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(DISP_CMD_LAYER_GET_PARA) failed: %s\n", strerror(- ret));
+		exit(ret);
+	}
+	layer_info.mode = DISP_LAYER_WORK_MODE_SCALER;
+	layer_info.src_win.width = sw;
+	layer_info.src_win.height = sh;
+	layer_info.scn_win.width = w;
+	layer_info.scn_win.height = h;
+	args[0] = screen;
+	args[1] = layer_handle;
+	args[2] = &layer_info;
+	ret = ioctl(fd_disp, DISP_CMD_LAYER_SET_PARA, args);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(DISP_CMD_LAYER_SET_PARA) failed: %s\n", strerror(- ret));
+		exit(ret);
+	}
+}
 // Returns framebuffer size in bytes. If there are multiple buffers, it returns the combined size.
 
 static int get_framebuffer_size(int screen) {
@@ -454,7 +491,7 @@ int main(int argc, char *argv[]) {
 	int previous_width, previous_height;
 	int screen = 0;
 	int use_scaler_for_large_32bpp_modes = 1;
-
+	int sc_source_width, sc_source_height, sc_width, sc_height; //Scaler args
 	int argi = 1;
 	if (argc == 1) {
 		usage(argc, argv);
@@ -603,6 +640,22 @@ int main(int argc, char *argv[]) {
         if (strcasecmp(argv[argi], "lcdon") == 0) {
 		command = COMMAND_LCD_ON;
 	}
+	else
+		if (strcasecmp(argv[argi], "rescale") == 0) {
+			if(argi+4>=argc)
+			{
+				usage(argc,argv);
+				return  1;
+			}
+			command = COMMAND_RESCALE;
+			sc_source_width=atoi(argv[argi+1]);
+			sc_source_height=atoi(argv[argi+2]);
+			sc_width=atoi(argv[argi+3]);
+			sc_height=atoi(argv[argi+4]);
+	}
+	else
+		if(strcasecmp(argv[argi], "disablescaler") == 0)
+			command=COMMAND_DISABLE_SCALER;
 	else {
 		fprintf(stderr, "Unknown command %s. Run a10disp without arguments for usage information.\n", argv[argi]);
 		return 1;
@@ -883,6 +936,11 @@ int main(int argc, char *argv[]) {
 		else
 			set_framebuffer_console_size_to_screen_size(screen);
 	}
+	else
+	if (command == COMMAND_RESCALE)enable_scaler_for_size(screen,sc_source_width,sc_source_height,sc_width,sc_height);
+	else
+	if (command == COMMAND_DISABLE_SCALER) disable_scaler(screen);
+
 	else
 	if (command == COMMAND_CHANGE_HDMI_MODE || command == COMMAND_CHANGE_HDMI_MODE_FORCE) {
 		int output_type;

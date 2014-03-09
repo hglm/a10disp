@@ -59,17 +59,19 @@ Change DISP_TV_MODE_NUM in include/video/sunxi_disp_ioctl.h, add mode to this fi
 // This can also be changed with the --nodoublebuffer option.
 #define DEFAULT_NUMBER_OF_FRAMEBUFFER_BUFFERS 2
 
-#define COMMAND_SWITCH_TO_HDMI		0
+#define COMMAND_SWITCH_TO_HDMI			0
 #define COMMAND_SWITCH_TO_HDMI_FORCE	1
-#define COMMAND_SWITCH_TO_LCD		2
-#define COMMAND_CHANGE_HDMI_MODE	3
+#define COMMAND_SWITCH_TO_LCD			2
+#define COMMAND_CHANGE_HDMI_MODE		3
 #define COMMAND_CHANGE_HDMI_MODE_FORCE	4
-#define COMMAND_CHANGE_PIXEL_DEPTH	5
-#define COMMAND_DISPLAY_OFF		6
-#define COMMAND_LCD_ON			7
-#define COMMAND_INFO			8
-#define COMMAND_RESCALE			9
-#define COMMAND_DISABLE_SCALER 		10
+#define COMMAND_CHANGE_PIXEL_DEPTH		5
+#define COMMAND_DISPLAY_OFF				6
+#define COMMAND_LCD_ON					7
+#define COMMAND_INFO					8
+#define COMMAND_RESCALE					9
+#define COMMAND_DISABLE_SCALER 			10
+#define COMMAND_ENABLE_HDMI 			11
+#define COMMAND_ENABLE_HDMI_FORCE 		12
 static int fd_disp;
 static int fd_fb[2];
 static int nu_framebuffer_buffers = DEFAULT_NUMBER_OF_FRAMEBUFFER_BUFFERS;
@@ -102,20 +104,21 @@ static const char *mode_str[MODE_COUNT] = {
 	"720p 50 Hz 3D",
 	"720p 60 Hz 3D",
 	"1360x768 60 Hz",
-	"1280x1024 60 Hz"
+	"1280x1024 60 Hz",
+	"1680x1050 60 Hz"
 };
 
 static int mode_size[MODE_COUNT] = {
 	640 * 480, 720 * 576, 640 * 480, 720 * 576, 1280 * 720, 1280 * 720, 1920 * 1080, 1920 * 1080, 1920 * 1080, 1920 * 1080, 1920 * 1080,
 	720 * 576, 720 * 576, 0, 640 * 480, 640 * 480, 0, 720 * 576, 720 * 576, 0, 720 * 576, 720 * 576, 0, 1920 * 1080, 1280 * 720, 1280 * 720,
-	1360 * 768, 1280 * 1024
+	1360 * 768, 1280 * 1024, 1680 * 1050
 };
 
 static int mode_width[MODE_COUNT] = { 640, 720, 640, 720, 1280, 1280, 1920, 1920, 1920, 1920, 1920, 720, 720, 0, 640, 640, 720, 720, 0, 720, 720, 0, 1920, 1280,
-	1280, 1360, 1280 };
+	1280, 1360, 1280, 1680 };
 
 static int mode_height[MODE_COUNT] = { 480, 576, 480, 576, 720, 720, 1080, 1080, 1080, 1080, 1080, 576, 576, 0, 480, 480, 576, 576, 0, 576, 576, 0, 1080, 720,
-	720, 1360, 1024 };
+	720, 1360, 1024, 1050 };
 
 static void usage(int argc, char *argv[]) {
 	int i;
@@ -217,6 +220,7 @@ static void set_framebuffer_console_size_to_screen_size(int screen) {
                 exit(ret);
         }
         height = ret;
+        if(width==65536||height==65536)exit(0);
 	sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d", screen, width, height);
 	printf("Setting console framebuffer resolution to %d x %d.\n", width, height);
 	system(s);
@@ -243,6 +247,7 @@ static void set_framebuffer_console_size_to_screen_size_and_set_pixel_depth(int 
                 exit(ret);
         }
         height = ret;
+        if(width==65536||height==65536)exit(0);
 	if (bytes_per_pixel == 4)
 		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 32 -rgba 8,8,8,8", screen, width, height);
 	else
@@ -618,6 +623,50 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	else
+	if (strcasecmp(argv[argi], "enablehdmiforce") == 0) {
+		if (argi + 1 >= argc) {
+			usage(argc, argv);
+			return 1;
+		}
+		command = COMMAND_ENABLE_HDMI_FORCE;
+		mode = atoi(argv[argi + 1]);
+		if (mode < 0 || mode >= MODE_COUNT) {
+			printf("Mode out of range.\n");
+			return 1;
+		}
+		bytes_per_pixel = 0;
+		if (argi + 2 < argc) {
+			int bits_per_pixel = atoi(argv[argi + 2]);
+			if (bits_per_pixel != 16 && bits_per_pixel != 32) {
+				printf("Bits per pixel must be 16 or 32.\n");
+				return 1;
+			}
+			bytes_per_pixel = bits_per_pixel / 8;
+		}
+	}
+	else
+	if (strcasecmp(argv[argi], "enablehdmi") == 0) {
+		if (argi + 1 >= argc) {
+			usage(argc, argv);
+			return 1;
+		}
+		command = COMMAND_ENABLE_HDMI;
+		mode = atoi(argv[argi + 1]);
+		if (mode < 0 || mode >= MODE_COUNT) {
+			printf("Mode out of range.\n");
+			return 1;
+		}
+		bytes_per_pixel = 0;
+		if (argi + 2 < argc) {
+			int bits_per_pixel = atoi(argv[argi + 2]);
+			if (bits_per_pixel != 16 && bits_per_pixel != 32) {
+				printf("Bits per pixel must be 16 or 32.\n");
+				return 1;
+			}
+			bytes_per_pixel = bits_per_pixel / 8;
+		}
+	}
+	else
 	if (strcasecmp(argv[argi], "changepixeldepth") == 0) {
 		int bits_per_pixel;
 		if (argi + 1 >= argc) {
@@ -865,6 +914,77 @@ int main(int argc, char *argv[]) {
 		// Turn LCD off.
       	        args[0] = screen;
                 ioctl(fd_disp, DISP_CMD_LCD_OFF, args);
+
+		// When changing from 32bpp to 16bpp, change the pixel depth.
+		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2)
+			set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
+
+		// When changing from 16bpp to 32bpp, and the new mode is smaller than the previous one,
+		// set the console and pixel depth with one command, otherwise only set the pixel depth.
+		need_to_set_console_size_16bpp_to_32bpp = 0;
+		if (previous_bytes_per_pixel == 2 && bytes_per_pixel == 4) {
+			if (mode_size[mode] < previous_width * previous_height) {
+				set_framebuffer_console_size_and_depth(screen, mode, bytes_per_pixel);
+			}
+			else {
+				set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
+				need_to_set_console_size_16bpp_to_32bpp = 1;
+			}
+		}
+
+		// Set the mode.
+		args[0] = screen;
+		args[1] = mode;
+		ret = ioctl(fd_disp, DISP_CMD_HDMI_SET_MODE, args);
+	        if (ret < 0) {
+       		        fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
+             		        strerror(-ret));
+                	return ret;
+	        }
+
+		if (use_scaler_for_large_32bpp_modes)
+			if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
+			&& mode_size[mode] > 1280 * 1024) {
+				// Enable scaler for bigger modes at 32bpp.
+				enable_scaler_for_mode(screen, mode);
+			}
+		// When switching from LCD, we can assume scaler mode was disabled.
+
+		// Turn HDMI on again.
+		args[0] = screen;
+		ioctl(fd_disp, DISP_CMD_HDMI_ON, args);
+
+		if (!(previous_bytes_per_pixel == 2 && bytes_per_pixel == 4) || need_to_set_console_size_16bpp_to_32bpp)
+			set_framebuffer_console_size_to_screen_size(screen);
+	}
+	else
+	if (command == COMMAND_ENABLE_HDMI || command == COMMAND_ENABLE_HDMI_FORCE) {
+		int output_type;
+		int need_to_set_console_size_16bpp_to_32bpp;
+
+		args[0] = screen;
+		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
+		if (output_type == DISP_OUTPUT_TYPE_HDMI) {
+                       printf("Cannot enable HDMI mode because HDMI is already enabled.\n");
+			return 1;
+		}
+		if (output_type == DISP_OUTPUT_TYPE_LCD) {
+			printf("Cannot enable HDMI because LCD is enabled, use switchtohdmi command.\n");
+			return 1;
+		}
+
+		if (command != COMMAND_ENABLE_HDMI_FORCE) {
+			args[0] = screen;
+			args[1] = mode;
+			ret = ioctl(fd_disp, DISP_CMD_HDMI_SUPPORT_MODE, args);
+			if (ret == 0) {
+				printf("Specified HDMI mode is not supported by the display according to the display driver.\n");
+				return - 1;
+			}
+		}
+
+		// Check that the framebuffer is large enough.
+		check_framebuffer_size(screen, mode, bytes_per_pixel);
 
 		// When changing from 32bpp to 16bpp, change the pixel depth.
 		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2)

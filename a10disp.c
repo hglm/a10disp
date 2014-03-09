@@ -216,7 +216,7 @@ static void set_framebuffer_console_size_to_screen_size(int screen) {
                 exit(ret);
         }
         height = ret;
-	sprintf(s, "fbset --all -xres %d -yres %d", width, height);
+	sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d", screen, width, height);
 	printf("Setting console framebuffer resolution to %d x %d.\n", width, height);
 	system(s);
 }
@@ -243,25 +243,25 @@ static void set_framebuffer_console_size_to_screen_size_and_set_pixel_depth(int 
         }
         height = ret;
 	if (bytes_per_pixel == 4)
-		sprintf(s, "fbset --all -xres %d -yres %d -depth 32 -rgba 8,8,8,8", width, height);
+		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 32 -rgba 8,8,8,8", screen, width, height);
 	else
-		sprintf(s, "fbset --all -xres %d -yres %d -depth 16 -rgba 5,6,5,0", width, height);
+		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 16 -rgba 5,6,5,0", screen, width, height);
 	printf("Setting console framebuffer resolution to %d x %d and pixel depth to %dbpp.\n", width, height, bytes_per_pixel * 8);
 	system(s);
 }
 
-static void set_framebuffer_console_size_and_depth(int mode, int bytes_per_pixel) {
+static void set_framebuffer_console_size_and_depth(int screen, int mode, int bytes_per_pixel) {
 	char s[80];
 	if (bytes_per_pixel == 4)
-		sprintf(s, "fbset --all -xres %d -yres %d -depth 32 -rgba 8,8,8,8", mode_width[mode], mode_height[mode]);
+		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 32 -rgba 8,8,8,8", screen, mode_width[mode], mode_height[mode]);
 	else
-		sprintf(s, "fbset --all -xres %d -yres %d -depth 16 -rgba 5,6,5,0", mode_width[mode], mode_height[mode]);
+		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 16 -rgba 5,6,5,0", screen, mode_width[mode], mode_height[mode]);
 	printf("Setting console framebuffer resolution to %d x %d and pixel depth to %dbpp.\n", mode_width[mode],
 		mode_height[mode], bytes_per_pixel * 8);
 	system(s);
 }
 
-void set_framebuffer_console_pixel_depth(int bytes_per_pixel) {
+void set_framebuffer_console_pixel_depth(int screen, int bytes_per_pixel) {
 	char *fbset_str;
 	if (bytes_per_pixel == 4)
 		fbset_str = "fbset --all -depth 32 -rgba 8,8,8,8";
@@ -269,7 +269,8 @@ void set_framebuffer_console_pixel_depth(int bytes_per_pixel) {
         if (bytes_per_pixel == 3)
                 fbset_str = "fbset --all -depth 24 -rgba 8,8,8,0";
 	else
-		fbset_str = "fbset --all -depth 16 -rgba 5,6,5,0";
+		fbset_str = "fbset --all -fb /dev/fbN -depth 16 -rgba 5,6,5,0";
+	fbset_str[23]=(char)((int)'0'+screen);
 	printf("Setting console framebuffer pixel depth to %d bpp.\n", bytes_per_pixel * 8);
 	system(fbset_str);
 }
@@ -814,17 +815,17 @@ int main(int argc, char *argv[]) {
 
 		// When changing from 32bpp to 16bpp, change the pixel depth.
 		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2)
-			set_framebuffer_console_pixel_depth(bytes_per_pixel);
+			set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
 
 		// When changing from 16bpp to 32bpp, and the new mode is smaller than the previous one,
 		// set the console and pixel depth with one command, otherwise only set the pixel depth.
 		need_to_set_console_size_16bpp_to_32bpp = 0;
 		if (previous_bytes_per_pixel == 2 && bytes_per_pixel == 4) {
 			if (mode_size[mode] < previous_width * previous_height) {
-				set_framebuffer_console_size_and_depth(mode, bytes_per_pixel);
+				set_framebuffer_console_size_and_depth(screen, mode, bytes_per_pixel);
 			}
 			else {
-				set_framebuffer_console_pixel_depth(bytes_per_pixel);
+				set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
 				need_to_set_console_size_16bpp_to_32bpp = 1;
 			}
 		}
@@ -913,7 +914,7 @@ int main(int argc, char *argv[]) {
 		// When changing from 32bpp to 16bpp, disable the scaler and change the pixel depth first.
 		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2) {
 			disable_scaler(screen);
-			set_framebuffer_console_pixel_depth(bytes_per_pixel);
+			set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
 		}
 
 		// When changing from 16bpp to 32bpp, and the new mode is smaller than the previous one,
@@ -921,10 +922,10 @@ int main(int argc, char *argv[]) {
 		need_to_set_console_size_16bpp_to_32bpp = 0;
 		if (previous_bytes_per_pixel == 2 && bytes_per_pixel == 4) {
 			if (mode_size[mode] < previous_width * previous_height) {
-				set_framebuffer_console_size_and_depth(mode, bytes_per_pixel);
+				set_framebuffer_console_size_and_depth(screen, mode, bytes_per_pixel);
 			}
 			else {
-				set_framebuffer_console_pixel_depth(bytes_per_pixel);
+				set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
 				need_to_set_console_size_16bpp_to_32bpp = 1;
 			}
 		}
@@ -995,7 +996,7 @@ int main(int argc, char *argv[]) {
 		else
 			disable_scaler(screen);
 
-		set_framebuffer_console_pixel_depth(bytes_per_pixel);
+		set_framebuffer_console_pixel_depth(screen, bytes_per_pixel);
 
 		// Turn HDMI on again.
 		args[0] = screen;

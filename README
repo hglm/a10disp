@@ -1,4 +1,4 @@
-a10disp v0.5
+a10disp v0.6
 
 a10disp is a utility to change the output mode of screen 0 or 1 for A1x and A20
 devices running Linux, especially tablets, but should also work on other boards.
@@ -68,7 +68,8 @@ Running a10disp requires that the "fbset" utility is present in the path. It
 is available in Debian based distributions in the package "fbset".
 
 Changes:
-
+v0.6	- Fix issue with changing console resolution on second screen
+	- Add enablehdmi, rescale and disablescale commands
 v0.5	- Fix potential issue with changepixeldepth command when HDMI EDID
           is enabled.
 	- Show current HDMI mode when using the info command.

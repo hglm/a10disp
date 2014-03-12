@@ -36,15 +36,15 @@
 #define MODE_COUNT DISP_TV_MODE_NUM
 /*
 You can add new modes support to kernel by editing files in drivers/video/sunxi/:
-    hdmi/hdmi_core.h:
-	Add new mode after "#define HDMI1280_1024_60(HDMI_NON_CEA861D_START + 1)"
-	For example, "#define HDMI1680_1050_60(HDMI_NON_CEA861D_START + 2)"
-    hdmi/hdmi_core.c:
-	Add timings before "{ HDMI_EDID, }" line, for example
-	    "{ HDMI1680_1050_60,   146000000,  0,  1680, 1050, 2240, 456, 104,176, 1089, 36,  3,  6, 0,  0,  1 },"
-    hdmi/drv_hdmi.c:
-	Add you mode with number to switch after "return HDMI1280_1024_60;"
-	For example, "case 28:return HDMI1680_1050_60;
+	hdmi/hdmi_core.h:
+		Add new mode after "#define HDMI1280_1024_60(HDMI_NON_CEA861D_START + 1)"
+		For example, "#define HDMI1680_1050_60(HDMI_NON_CEA861D_START + 2)"
+	hdmi/hdmi_core.c:
+		Add timings before "{ HDMI_EDID, }" line, for example
+			"{ HDMI1680_1050_60,   146000000,  0,  1680, 1050, 2240, 456, 104,176, 1089, 36,  3,  6, 0,  0,  1 },"
+	hdmi/drv_hdmi.c:
+		Add you mode with number to switch after "return HDMI1280_1024_60;"
+		For example, "case 28:return HDMI1680_1050_60;
 Change DISP_TV_MODE_NUM in include/video/sunxi_disp_ioctl.h, add mode to this file and rebuild the kernel.
 */
 
@@ -88,7 +88,7 @@ static const char *mode_str[MODE_COUNT] = {
 	"1080p 24 Hz",
 	"1080p 50 Hz",
 	"1080p 60 Hz",
-        "PAL",
+	"PAL",
 	"PAL SVIDEO",
 	"",
 	"NTSC",
@@ -126,37 +126,44 @@ static void usage(int argc, char *argv[]) {
 	printf("Usage: %s <options> <command>\n"
 		"Options:\n"
 		"--screen <number>\n"
-		"       Screen number to operate on. Must be 0 or 1. Default is 0.\n"
+		"	Screen number to operate on. Must be 0 or 1. Default is 0.\n"
 		"--nodoublebuffer\n"
-		"       When checking the framebuffer size, assume no double buffering will be used.\n"
-		"       Use this only if double buffering won't be required (you don't use Mali).\n"
+		"	When checking the framebuffer size, assume no double buffering will be used.\n"
+		"	Use this only if double buffering won't be required (you don't use Mali).\n"
 		"--noscaler\n"
 		"	Do not enable scaler mode when setting 32bpp modes larges than size 1280x1024.\n"
 		"	While scaler mode can help reduce some artifacts related to scanout buffer underrun\n"
-		"       (for example wavy screen during Mali operation) on systems with a limited number of\n"
-		"       scaler layers (such as those with an A13 chip), using scaler mode may make other\n"
+		"	(for example wavy screen during Mali operation) on systems with a limited number of\n"
+		"	scaler layers (such as those with an A13 chip), using scaler mode may make other\n"
 		"	applications using scaler mode, such as accelerated video or video overlay impossible.\n"
 		"Commands:\n"
 		"info\n"
-		"       Show information about the current mode on screens 0 and 1.\n"
+		"	Show information about the current mode on screens 0 and 1.\n"
 		"switchtohdmi mode_number [pixel_depth]\n"
-		"       Switch output from LCD to HDMI mode [mode_number]. The mode is mandatory.\n"
-		"       If pixel_depth is not given, the pixel depth is not changed; otherwise, it is changed to\n"
-		"       pixel_depth (16 or 32).\n"
+		"	Switch output from LCD to HDMI mode [mode_number]. The mode is mandatory.\n"
+		"	If pixel_depth is not given, the pixel depth is not changed; otherwise, it is changed to\n"
+		"	pixel_depth (16 or 32).\n"
 		"switchtohdmiforce mode_number [pixel_depth]\n"
-		"       Switch output to HDMI mode even if the display driver reports the mode is not supported.\n"
+		"	Switch output to HDMI mode even if the display driver reports the mode is not supported.\n"
 		"switchtolcd\n"
-		"       Switch output from HDMI to LCD. This changes the pixel depth to 32bpp.\n"
+		"	Switch output from HDMI to LCD. This changes the pixel depth to 32bpp.\n"
 		"changehdmimode mode_number [pixel_depth]\n"
-		"       Change HDMI mode to mode number. Pixel depth is optional.\n"
+		"	Change HDMI mode to mode number. Pixel depth is optional.\n"
 		"changehdmimodeforce mode_number [pixel_depth]\n"
-		"       Change HDMI mode to mode number even if the display driver reports the mode is not supported.\n"
+		"	Change HDMI mode to mode number even if the display driver reports the mode is not supported.\n"
 		"changepixeldepth [pixel_depth]\n"
 		"	Change the pixel depth in bits of the current mode (must be 16, 32 or 24 (experimental)).\n"
 		"displayoff\n"
 		"	Disable the display output on the screen.\n"
 		"lcdon\n"
-		"	Enable LCD display. Only valid when screen output is disabled on the given screen.\n",
+		"	Enable LCD display. Only valid when screen output is disabled on the given screen.\n"
+		"enablehdmi mode_number [pixel_depth]\n"
+		"	Enable hdmi output with given mode\n"
+		"rescale source_width source_height width height\n"
+		"	Enable hardware scaler layer. Can be used with overscaned HDMI or non-square pixel lcd matrix.\n"
+		"	May cause VDPAU problems if resolution not devided by 16\n"
+		"disablescaler\n"
+		"	Disable hardware scaler layer.\n",
 		argv[0]);
 	printf("\nHDMI/TV mode numbers:\n");
 	for (i = 0; i < MODE_COUNT; i++)
@@ -204,23 +211,23 @@ static void set_framebuffer_console_size_to_screen_size(int screen) {
 	int ret;
 	int width, height;
 	char s[80];
-        tmp = screen;
-       	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_WIDTH, &tmp);
-        if (ret < 0) {
-                fprintf(stderr, "Error: ioctl(SCN_GET_WIDTH) failed: %s\n",
-                        strerror(-ret));
-                exit(ret);
-        }
-        width = ret;
-        tmp = screen;
-        ret = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
-        if (ret < 0) {
-       	        fprintf(stderr, "Error: ioctl(SCN_GET_HEIGHT) failed: %s\n",
-               	        strerror(-ret));
-                exit(ret);
-        }
-        height = ret;
-        if(width==65536||height==65536)exit(0);
+	tmp = screen;
+	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_WIDTH, &tmp);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(SCN_GET_WIDTH) failed: %s\n",
+			strerror(-ret));
+		exit(ret);
+	}
+	width = ret;
+	tmp = screen;
+	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(SCN_GET_HEIGHT) failed: %s\n",
+				strerror(-ret));
+		exit(ret);
+	}
+	height = ret;
+	if(width==65536||height==65536)exit(0);
 	sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d", screen, width, height);
 	printf("Setting console framebuffer resolution to %d x %d.\n", width, height);
 	system(s);
@@ -231,23 +238,23 @@ static void set_framebuffer_console_size_to_screen_size_and_set_pixel_depth(int 
 	int ret;
 	int width, height;
 	char s[80];
-        tmp = screen;
+	tmp = screen;
        	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_WIDTH, &tmp);
-        if (ret < 0) {
-                fprintf(stderr, "Error: ioctl(SCN_GET_WIDTH) failed: %s\n",
-                        strerror(-ret));
-                exit(ret);
-        }
-        width = ret;
-        tmp = screen;
-        ret = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
-        if (ret < 0) {
-       	        fprintf(stderr, "Error: ioctl(SCN_GET_HEIGHT) failed: %s\n",
-               	        strerror(-ret));
-                exit(ret);
-        }
-        height = ret;
-        if(width==65536||height==65536)exit(0);
+	if (ret < 0) {
+		fprintf(stderr, "Error: ioctl(SCN_GET_WIDTH) failed: %s\n",
+			strerror(-ret));
+		exit(ret);
+	}
+	width = ret;
+	tmp = screen;
+	ret = ioctl(fd_disp, DISP_CMD_SCN_GET_HEIGHT, &tmp);
+	if (ret < 0) {
+       		fprintf(stderr, "Error: ioctl(SCN_GET_HEIGHT) failed: %s\n",
+	       		strerror(-ret));
+		exit(ret);
+	}
+	height = ret;
+	if(width==65536||height==65536)exit(0);
 	if (bytes_per_pixel == 4)
 		sprintf(s, "fbset --all -fb /dev/fb%d -xres %d -yres %d -depth 32 -rgba 8,8,8,8", screen, width, height);
 	else
@@ -271,9 +278,9 @@ void set_framebuffer_console_pixel_depth(int screen, int bytes_per_pixel) {
 	char *fbset_str;
 	if (bytes_per_pixel == 4)
 		fbset_str = "fbset --all -depth 32 -rgba 8,8,8,8";
-        else
-        if (bytes_per_pixel == 3)
-                fbset_str = "fbset --all -depth 24 -rgba 8,8,8,0";
+	else
+	if (bytes_per_pixel == 3)
+		fbset_str = "fbset --all -depth 24 -rgba 8,8,8,0";
 	else
 		fbset_str = "fbset --all -fb /dev/fbN -depth 16 -rgba 5,6,5,0";
 	fbset_str[23]=(char)((int)'0'+screen);
@@ -515,7 +522,7 @@ int main(int argc, char *argv[]) {
 			}
 			argi += 2;
 			continue;
-                }
+		}
 		if (strcasecmp(argv[argi], "--nodoublebuffer") == 0) {
 			nu_framebuffer_buffers = 1;
 			argi++;
@@ -527,7 +534,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		break;
-        }
+	}
 
 	if (argi >= argc) {
 		fprintf(stderr, "No command given.\n");
@@ -682,11 +689,11 @@ int main(int argc, char *argv[]) {
 		bytes_per_pixel = bits_per_pixel / 8;
 	}
 	else
-        if (strcasecmp(argv[argi], "displayoff") == 0) {
+	if (strcasecmp(argv[argi], "displayoff") == 0) {
 		command = COMMAND_DISPLAY_OFF;
 	}
 	else
-        if (strcasecmp(argv[argi], "lcdon") == 0) {
+	if (strcasecmp(argv[argi], "lcdon") == 0) {
 		command = COMMAND_LCD_ON;
 	}
 	else
@@ -795,11 +802,11 @@ int main(int argc, char *argv[]) {
 					return ret;
 				}
 				height = ret;
-				printf("        Display dimensions are %d x %d.\n", width, height);
+				printf("	Display dimensions are %d x %d.\n", width, height);
 
 				args[0] = screen;
 				output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
-				printf("        Output type is %s.\n", output_type_str(output_type));
+				printf("	Output type is %s.\n", output_type_str(output_type));
 
 				if (output_type == DISP_OUTPUT_TYPE_NONE)
 					continue;
@@ -812,15 +819,15 @@ int main(int argc, char *argv[]) {
 					return ret;
 				}
 				layer_handle = args[0];
-
-                                args[0] = screen;
-                                args[1] = layer_handle;
-                                args[2] = &fb_info;
-                                ret = ioctl(fd_disp, DISP_CMD_LAYER_GET_FB, args);
-                                if (ret < 0) {
-                                        fprintf(stderr, "Error: ioctl(DISP_CMD_LAYER_GET_FB) failed: %s\n", strerror(- ret));
-                                        return ret;
-                                }
+				printf("%d\n",layer_handle);
+				args[0] = screen;
+				args[1] = layer_handle;
+				args[2] = &fb_info;
+				ret = ioctl(fd_disp, DISP_CMD_LAYER_GET_FB, args);
+				if (ret < 0) {
+					fprintf(stderr, "Error: ioctl(DISP_CMD_LAYER_GET_FB) failed: %s\n", strerror(- ret));
+					return ret;
+				}
 				int bytes_per_pixel = 1;
 				if (fb_info.format >= DISP_FORMAT_RGB655 && fb_info.format <= DISP_FORMAT_RGBA5551)
 					bytes_per_pixel = 2;
@@ -830,9 +837,9 @@ int main(int argc, char *argv[]) {
 					bytes_per_pixel = 3;
 				if (fb_info.format == DISP_FORMAT_ARGB4444)
 					bytes_per_pixel = 2;
-				printf("        Framebuffer dimensions are %d x %d (%.2f MB).\n", fb_info.size.width, fb_info.size.height,
+				printf("	Framebuffer dimensions are %d x %d (%.2f MB).\n", fb_info.size.width, fb_info.size.height,
 					(float)(bytes_per_pixel * fb_info.size.width * fb_info.size.height) / (1024 * 1024));
-				printf("        Framebuffer pixel format = 0x%02X (%dbpp).\n", fb_info.format, bytes_per_pixel * 8);
+				printf("	Framebuffer pixel format = 0x%02X (%dbpp).\n", fb_info.format, bytes_per_pixel * 8);
 				args[0] = screen;
 				args[1] = layer_handle;
 				args[2] = &layer_info;
@@ -841,10 +848,10 @@ int main(int argc, char *argv[]) {
 					fprintf(stderr, "Error: ioctl(DISP_CMD_LAYER_GET_PARA) failed: %s\n", strerror(- ret));
 					return ret;
 				}
-				printf("        Layer working mode is %s.\n", layer_mode_str(layer_info.mode));
-				printf("        Layer source window size is %d x %d.\n", layer_info.src_win.width,
+				printf("	Layer working mode is %s.\n", layer_mode_str(layer_info.mode));
+				printf("	Layer source window size is %d x %d.\n", layer_info.src_win.width,
 					layer_info.src_win.height);
-				printf("        Layer screen window size is %d x %d.\n", layer_info.scn_win.width,
+				printf("	Layer screen window size is %d x %d.\n", layer_info.scn_win.width,
 					layer_info.scn_win.height);
 				if (output_type == DISP_OUTPUT_TYPE_HDMI) {
 					// Get the current HDMI mode.
@@ -890,7 +897,7 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type == DISP_OUTPUT_TYPE_HDMI) {
-                       printf("Cannot switch to HDMI mode because HDMI is already enabled.\n");
+			printf("Cannot switch to HDMI mode because HDMI is already enabled.\n");
 			return 1;
 		}
 		if (output_type != DISP_OUTPUT_TYPE_LCD) {
@@ -912,8 +919,8 @@ int main(int argc, char *argv[]) {
 		check_framebuffer_size(screen, mode, bytes_per_pixel);
 
 		// Turn LCD off.
-      	        args[0] = screen;
-                ioctl(fd_disp, DISP_CMD_LCD_OFF, args);
+		args[0] = screen;
+		ioctl(fd_disp, DISP_CMD_LCD_OFF, args);
 
 		// When changing from 32bpp to 16bpp, change the pixel depth.
 		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2)
@@ -936,11 +943,11 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		args[1] = mode;
 		ret = ioctl(fd_disp, DISP_CMD_HDMI_SET_MODE, args);
-	        if (ret < 0) {
-       		        fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
-             		        strerror(-ret));
-                	return ret;
-	        }
+		if (ret < 0) {
+			fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
+					strerror(-ret));
+			return ret;
+		}
 
 		if (use_scaler_for_large_32bpp_modes)
 			if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
@@ -965,7 +972,7 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type == DISP_OUTPUT_TYPE_HDMI) {
-                       printf("Cannot enable HDMI mode because HDMI is already enabled.\n");
+		       printf("Cannot enable HDMI mode because HDMI is already enabled.\n");
 			return 1;
 		}
 		if (output_type == DISP_OUTPUT_TYPE_LCD) {
@@ -1007,11 +1014,11 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		args[1] = mode;
 		ret = ioctl(fd_disp, DISP_CMD_HDMI_SET_MODE, args);
-	        if (ret < 0) {
-       		        fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
-             		        strerror(-ret));
-                	return ret;
-	        }
+		if (ret < 0) {
+			fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
+					strerror(-ret));
+			return ret;
+		}
 
 		if (use_scaler_for_large_32bpp_modes)
 			if ((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
@@ -1034,7 +1041,7 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type == DISP_OUTPUT_TYPE_LCD) {
-                	printf("Cannot switch to LCD mode because LCD is already enabled.\n");
+			printf("Cannot switch to LCD mode because LCD is already enabled.\n");
 			return 1;
 		}
 		if (output_type != DISP_OUTPUT_TYPE_HDMI) {
@@ -1042,8 +1049,8 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		// Turn HDMI off.
-                args[0] = screen;
-                ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
+		args[0] = screen;
+		ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 		// Disable scaler mode.
 		disable_scaler(screen);
 		// Turn the LCD on.
@@ -1069,7 +1076,7 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type != DISP_OUTPUT_TYPE_HDMI) {
-                       printf("Cannot change HDMI mode because HDMI is not enabled.\n");
+		       printf("Cannot change HDMI mode because HDMI is not enabled.\n");
 			return 1;
 		}
 		if (command != COMMAND_CHANGE_HDMI_MODE_FORCE) {
@@ -1086,8 +1093,8 @@ int main(int argc, char *argv[]) {
 		check_framebuffer_size(screen, mode, bytes_per_pixel);
 
 		// Turn HDMI off.
-      	        args[0] = screen;
-                ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
+		args[0] = screen;
+		ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 
 		// When changing from 32bpp to 16bpp, disable the scaler and change the pixel depth first.
 		if (previous_bytes_per_pixel == 4 && bytes_per_pixel == 2) {
@@ -1112,11 +1119,11 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		args[1] = mode;
 		ret = ioctl(fd_disp, DISP_CMD_HDMI_SET_MODE, args);
-	        if (ret < 0) {
-       		        fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
-             		        strerror(-ret));
-                	return ret;
-	        }
+		if (ret < 0) {
+       			fprintf(stderr, "Error: ioctl(DISP_CMD_HDMI_SET_MODE) failed: %s\n",
+	     			strerror(-ret));
+			return ret;
+		}
 
 		if (use_scaler_for_large_32bpp_modes &&
 		((bytes_per_pixel == 4 || (bytes_per_pixel == 0 && previous_bytes_per_pixel == 4))
@@ -1146,7 +1153,7 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type != DISP_OUTPUT_TYPE_HDMI) {
-               		printf("Cannot change color depth because HDMI is not enabled.\n");
+	       		printf("Cannot change color depth because HDMI is not enabled.\n");
 			return 1;
 		}
 
@@ -1158,8 +1165,8 @@ int main(int argc, char *argv[]) {
 		check_framebuffer_size(screen, mode, bytes_per_pixel);
 
 		// Turn HDMI off.
-      	        args[0] = screen;
-                ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
+      		args[0] = screen;
+		ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 
 		// mode is equal to 0xFF when EDID setting is enabled.
 		int large_mode;
@@ -1186,8 +1193,8 @@ int main(int argc, char *argv[]) {
 		args[0] = screen;
 		output_type = ioctl(fd_disp, DISP_CMD_GET_OUTPUT_TYPE, args);
 		if (output_type == DISP_OUTPUT_TYPE_HDMI) {
-	      	        args[0] = screen;
-	                ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
+	      		args[0] = screen;
+			ioctl(fd_disp, DISP_CMD_HDMI_OFF, args);
 		}
 		else
 		if (output_type == DISP_OUTPUT_TYPE_LCD) {

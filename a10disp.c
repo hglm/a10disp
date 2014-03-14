@@ -122,7 +122,7 @@ static int mode_height[MODE_COUNT] = { 480, 576, 480, 576, 720, 720, 1080, 1080,
 
 static void usage(int argc, char *argv[]) {
 	int i;
-	printf("a10disp v0.5\n");
+	printf("a10disp v0.6\n");
 	printf("Usage: %s <options> <command>\n"
 		"Options:\n"
 		"--screen <number>\n"
@@ -282,7 +282,7 @@ void set_framebuffer_console_pixel_depth(int screen, int bytes_per_pixel) {
 	if (bytes_per_pixel == 3)
 		fbset_str = "fbset --all -depth 24 -rgba 8,8,8,0";
 	else
-		fbset_str = "fbset --all -fb /dev/fbN -depth 16 -rgba 5,6,5,0";
+		fbset_str = "fbset --all -depth 16 -rgba 5,6,5,0";
 	fbset_str[23]=(char)((int)'0'+screen);
 	printf("Setting console framebuffer pixel depth to %d bpp.\n", bytes_per_pixel * 8);
 	system(fbset_str);
@@ -819,7 +819,9 @@ int main(int argc, char *argv[]) {
 					return ret;
 				}
 				layer_handle = args[0];
-				printf("%d\n",layer_handle);
+#if 0
+				printf("%d\n", layer_handle);
+#endif
 				args[0] = screen;
 				args[1] = layer_handle;
 				args[2] = &fb_info;

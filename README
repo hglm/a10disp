@@ -45,6 +45,8 @@ To compile, you need to copy the file sunxi_disp_ioctl.h from to the
 kernel being used to the source directory for a10disp. In the kernel sources,
 this file is located in include/video.
 
+For convenience a pre-compiled binary is provided in the bin/ directory.
+
 The program requires sunxi display driver version 1.0 or higher. It was tested
 on sunxi kernel version 3.4.43, 3.4.61 and 3.4.67. It may not work on earlier
 versions of the 3.4 tree with a display driver older than version 1.0. It may

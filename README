@@ -1,4 +1,4 @@
-a10disp v0.6
+a10disp v0.6.1
 
 a10disp is a utility to change the output mode of screen 0 or 1 for A1x and A20
 devices running Linux, especially tablets, but should also work on other boards.
@@ -43,7 +43,8 @@ performance because it halves the bandwidth needed for screen refresh.
 
 To compile, you need to copy the file sunxi_disp_ioctl.h from to the
 kernel being used to the source directory for a10disp. In the kernel sources,
-this file is located in include/video.
+this file is located in include/video. You can specify CFLAGS to add include path.
+Add -static to CFLAGS to build static binary.
 
 For convenience a pre-compiled binary is provided in the bin/ directory.
 
@@ -51,6 +52,17 @@ The program requires sunxi display driver version 1.0 or higher. It was tested
 on sunxi kernel version 3.4.43, 3.4.61 and 3.4.67. It may not work on earlier
 versions of the 3.4 tree with a display driver older than version 1.0. It may
 also work on the 3.0 tree if the sunxi display driver version is 1.0 or higher.
+
+On older kernels (with no driver versioning), the program may work when using
+the --no-version-check option. Although some ioctls are unavailable, it is possible
+to for example enable HDMI and switch scaler mode on stock Android kernel 3.0.8+
+as installed on some tablets, but it cannot get layer info from the second screen.
+
+To run a10disp on Android, compile a10disp and fbset statically, put to the same
+directory and use (remove the backslash when executing a single line):
+
+	./a10disp --no-version-check --fbdev-base /dev/graphics/fb \
+	--fbset-command ./fbset
 
 There is a definition at the top of a10disp.c that can be changed. It defines
 the number of framebuffers (double-buffering) assumed when checking
@@ -66,19 +78,28 @@ To install, run
 
 	sudo make install
 
+You can specify a installation path prefix in the Makefile.
+
 Running a10disp requires that the "fbset" utility is present in the path. It
 is available in Debian based distributions in the package "fbset".
+You can specify path to fbset utility by --fbset-command option. In Android,
+fbset from Busybox will not work.
 
 Changes:
+v0.6.1	- Add options to specify fbset and framebudfer pathes and to skip 
+	  framebuffer size check. Can now work on Android which has the
+          fb node at /dev/grapics/ and on devices without framebuffer at all.
+	- Add the --no-version-check option; most commands can work using the 
+	  the old driver.
 v0.6	- Fix issue with changing console resolution on second screen
-	- Add enablehdmi, rescale and disablescale commands
+	- Add enablehdmi, rescale and disablescale commands.
 v0.5	- Fix potential issue with changepixeldepth command when HDMI EDID
-          is enabled.
+	  is enabled.
 	- Show current HDMI mode when using the info command.
 v0.4.1	- Add --noscaler option.
 v0.4	- Rework command line processing.
 	- Add --screen option so that screen 1 can also be changed. This has
-          not been tested.
+	  not been tested.
 	- Add --nodoublebuffer option.
 v0.3.2	- Experimental suport for changing the pixel depth to and from 24bpp
 	  mode (only with changepixeldepth).

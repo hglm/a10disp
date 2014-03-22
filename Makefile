@@ -1,5 +1,6 @@
 PREFIX ?=/usr/local
 CC ?= gcc
+CFLAGS ?= -g -O2
 all : a10disp
 
 install : a10disp
@@ -9,7 +10,7 @@ uninstall : $(PREFIX)/bin/a10disp
 	rm -f $(PREFIX)/bin/a10disp
 
 a10disp : a10disp.c
-	$(CC) -Wall -O a10disp.c -o a10disp -g
+	$(CC) -Wall $(CFLAGS) a10disp.c -o a10disp
 
 clean :
 	rm -f a10disp
